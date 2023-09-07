@@ -1,0 +1,126 @@
+---
+title: "Statistics Seminar - Jay Casey"
+output:
+  word_document: default
+  html_notebook: default
+---
+```{r message=FALSE, warning=FALSE, paged.print=FALSE}
+#loading Packages
+library(mosaic)
+library(tidyverse)
+library(maps)
+library(readr)
+library(RColorBrewer)
+```
+```{r}
+#Focussing my data into Western NY
+newyork <- us_map %>%
+  filter(region == "new york") %>%#filter(subregion != "new york")
+  filter(subregion %in% c("chautauqua", "cattaraugus", "erie", "niagara", "orleans", "genesee","wyoming","allegany","monroe","livingston","steuben","ontario","wayne","yates","schuyler","chemung","seneca"))
+  
+newyork
+plot1 <- ggplot(data = newyork,
+                aes(x = long, y = lat,
+                    group = group)) +
+  geom_polygon(color = "black", size = 0.5,
+               fill = "lightgreen") +
+  coord_quickmap()
+#+
+  #text(x = newyork$long, y = newyork$lat, 
+     #newyork$subregion, pos = 1, col = "magenta")
+plot1
+
+```
+```{r}
+#Loading our data
+StatSem <- read_csv("LotteryAid.csv")
+df1 <- StatSem %>% 
+  mutate(County = str_to_lower(County)) %>%
+  select(1:4) %>% 
+  mutate(Aid = ifelse(County == "new york", Aid/5,Aid)) %>%
+  #filter(County %in% c("chautauqua", "cattaraugus", "erie", "niagara", "orleans", "genesee","wyoming","allegany","monroe","livingston","steuben","ontario","wayne","yates","schuyler","chemung","seneca")) %>%
+  mutate(logPop = log(Population), logAid = log(Aid))
+
+head(df1)
+nrow(StatSem)
+nrow(df1)
+```
+```{r}
+mapdf1 <- newyork %>%
+  full_join(df1, by = c("subregion" = "County")) %>% 
+  mutate(logPop = log(Population), logAid = log(Aid))
+head(mapdf1)
+```
+```{r}
+# Centroids for the labeling
+cnames_wny <- aggregate(cbind(long, lat) ~ subregion, data=mapdf1, 
+                    FUN=function(x)mean(range(x)))
+
+# Fixes to make the centroids more "centered"
+
+cnames_wny[3,3] <- 42.25
+cnames_wny[17,3] <- 42.64
+cnames_wny[5,2] <- -78.7
+cnames_wny[10,3] <- 42.85
+cnames_wny[13,2] <- -76.83
+```
+
+```{r}
+#Discrete Color Brewer For different map palettes (purples, reds, greens, oranges, greys, blues) 
+map1 <- ggplot(data = mapdf1,
+ aes(x = long, y = lat,
+ group = group)) +
+ geom_polygon(color = "black",
+ aes(fill = logAid)) +
+  geom_text(data=cnames_wny, aes(x = long, y = lat, group = 1, label = subregion), size=4) +
+  
+ coord_quickmap() +
+  labs(title = "Lottery Education Aid by County") +
+  scale_fill_distiller(palette = "Purples")
+map1
+```
+```{r}
+map2 <- ggplot(data = mapdf1,
+ aes(x = long, y = lat,
+ group = group)) +
+ geom_polygon(color = "black",
+ aes(fill = logPop)) +
+ geom_text(data=cnames_wny, aes(x = long, y = lat, group = 1, label = subregion), size=4) +
+  coord_quickmap() +
+  labs(title = "Population Density by County")+
+  scale_fill_distiller(palette = "Purples")
+map2
+```
+```{r}
+#Map By Poverty
+map3 <- ggplot(data = mapdf1,
+ aes(x = long, y = lat,
+ group = group)) +
+ geom_polygon(color = "black",
+ aes(fill = log(Poverty))) +
+ geom_text(data=cnames_wny, aes(x = long, y = lat, group = 1, label = subregion), size=4) +
+ coord_quickmap() +
+  labs(title = "Percent Of Population Below Poverty Level")+
+  scale_fill_distiller(palette = "Purples")
+map3
+```
+```{r}
+cor(df1[c(6,5,4)])
+```
+```{r}
+cor.test(df1$logAid, df1$logPop)
+cor.test(df1$Aid, df1$Poverty)
+```
+```{r}
+plot(df1$logAid, df1$logPop)
+plot(df1$Aid, df1$Poverty)
+```
+```{r}
+model1 <- lm(df1$logAid ~ df1$logPop)
+summary(model1)
+plot(model1)
+```
+
+
+
+
